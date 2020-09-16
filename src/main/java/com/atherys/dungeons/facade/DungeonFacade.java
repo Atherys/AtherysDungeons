@@ -95,7 +95,10 @@ public class DungeonFacade {
 
         // TODO: Provide some sort of time interval, with a warning, before players are reconnected.
         // TODO: Decrement number of available instances by 1, ensuring that if the party falls apart before the dungeon instance is ready, it can be re-incremented
-        // TODO: Create dungeon server instance and reconnect players there
+
+        dungeonInstantiationService.createDungeonInstance(queuedParty.getDungeon(), (instance) -> {
+            // TODO: Retrieve server address and port, reconnect players in party
+        });
     }
 
     private void registerDungeon(DungeonConfig dungeonConfig) {

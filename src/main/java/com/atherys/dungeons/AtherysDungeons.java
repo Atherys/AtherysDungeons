@@ -50,6 +50,8 @@ public class AtherysDungeons {
         dungeonsInjector.injectMembers(components);
 
         components.config.init();
+        components.dungeonInstantiationService.init();
+        components.dungeonFacade.init();
     }
 
     private void start() {
@@ -60,7 +62,7 @@ public class AtherysDungeons {
     }
 
     private void stop() {
-
+        components.dungeonInstantiationService.stop();
     }
 
     @Listener(order = Order.LATE)
