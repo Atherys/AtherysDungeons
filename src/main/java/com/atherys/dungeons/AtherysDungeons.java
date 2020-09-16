@@ -1,5 +1,8 @@
 package com.atherys.dungeons;
 
+import com.atherys.dungeons.facade.DungeonFacade;
+import com.atherys.dungeons.facade.DungeonsMessagingFacade;
+import com.atherys.dungeons.service.DungeonInstantiationService;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import org.slf4j.Logger;
@@ -86,8 +89,29 @@ public class AtherysDungeons {
         }
     }
 
+    public DungeonFacade getDungeonFacade() {
+        return components.dungeonFacade;
+    }
+
+    public DungeonsMessagingFacade getDungeonsMessagingFacade() {
+        return components.dungeonsMessagingFacade;
+    }
+
+    public static AtherysDungeons getInstance() {
+        return instance;
+    }
+
     private static class Components {
         @Inject
         AtherysDungeonsConfig config;
+
+        @Inject
+        DungeonFacade dungeonFacade;
+
+        @Inject
+        DungeonsMessagingFacade dungeonsMessagingFacade;
+
+        @Inject
+        DungeonInstantiationService dungeonInstantiationService;
     }
 }

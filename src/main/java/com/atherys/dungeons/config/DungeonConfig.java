@@ -7,7 +7,7 @@ import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
 public class DungeonConfig {
 
     @Setting("pack-id")
-    public String PACK_ID;
+    public long PACK_ID;
 
     @Setting("name")
     public String NAME;

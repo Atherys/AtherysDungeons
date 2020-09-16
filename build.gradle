@@ -9,5 +9,5 @@ version '1.0.0'
 dependencies {
     shadow 'com.github.Atherys-Horizons:AtherysParties:master-SNAPSHOT'
 
-    compile 'com.github.mattmalec:Pterodactyl4J:master-SNAPSHOT'
+    compile 'com.github.Atherys-Horizons:Pterodactyl4J:develop-SNAPSHOT'
 }
