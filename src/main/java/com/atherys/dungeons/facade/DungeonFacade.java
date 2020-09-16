@@ -1,5 +1,6 @@
 package com.atherys.dungeons.facade;
 
+import com.atherys.dungeons.AtherysDungeons;
 import com.atherys.dungeons.AtherysDungeonsConfig;
 import com.atherys.dungeons.config.DungeonConfig;
 import com.atherys.dungeons.exception.DungeonsCommandException;
@@ -11,12 +12,16 @@ import com.atherys.party.AtherysParties;
 import com.atherys.party.entity.Party;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import org.spongepowered.api.Sponge;
 import org.spongepowered.api.entity.living.player.Player;
+import org.spongepowered.api.scheduler.Scheduler;
+import org.spongepowered.api.scheduler.Task;
 
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
 
 @Singleton
 public class DungeonFacade {
@@ -31,8 +36,16 @@ public class DungeonFacade {
 
     private Queue<QueuedParty> queue = new LinkedList<>();
 
+    private Task queueChecker;
+
     public void init() {
         dungeonsConfig.DUNGEONS.forEach(this::registerDungeon);
+
+        queueChecker = Sponge.getScheduler().createTaskBuilder()
+                .async()
+                .interval(1, TimeUnit.SECONDS)
+                .execute(this::updateQueue)
+                .submit(AtherysDungeons.getInstance());
     }
 
     public void queuePlayerParty(Player source, Dungeon dungeon) throws DungeonsCommandException {
@@ -63,6 +76,26 @@ public class DungeonFacade {
 
     public Map<String, Dungeon> getDungeons() {
         return dungeons;
+    }
+
+    private void updateQueue() {
+        int numberOfAvailableInstances = dungeonInstantiationService.fetchNumberOfAvailableInstances();
+
+        if ( numberOfAvailableInstances < 1 ) {
+            return; // there are no instances available, it is pointless to continue
+        }
+
+        QueuedParty queuedParty = queue.poll();
+
+        if (queuedParty == null) {
+            return; // the queue was empty and no party could be retrieved
+        }
+
+        AtherysParties.getInstance().getPartyMessagingFacade().sendInfoToParty(queuedParty.getParty(), "Prepare to enter ", queuedParty.getDungeon().getName(), "!");
+
+        // TODO: Provide some sort of time interval, with a warning, before players are reconnected.
+        // TODO: Decrement number of available instances by 1, ensuring that if the party falls apart before the dungeon instance is ready, it can be re-incremented
+        // TODO: Create dungeon server instance and reconnect players there
     }
 
     private void registerDungeon(DungeonConfig dungeonConfig) {

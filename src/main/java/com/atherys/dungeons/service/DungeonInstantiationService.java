@@ -3,12 +3,8 @@ package com.atherys.dungeons.service;
 import com.atherys.dungeons.AtherysDungeonsConfig;
 import com.atherys.dungeons.model.Dungeon;
 import com.atherys.dungeons.model.DungeonInstance;
-import com.atherys.dungeons.model.InstanceSettings;
 import com.mattmalec.pterodactyl4j.DataType;
 import com.mattmalec.pterodactyl4j.PteroBuilder;
-import com.mattmalec.pterodactyl4j.application.entities.ApplicationServer;
-import com.mattmalec.pterodactyl4j.application.entities.Egg;
-import com.mattmalec.pterodactyl4j.application.entities.PteroApplication;
 import com.mattmalec.pterodactyl4j.entities.PteroAPI;
 
 import javax.inject.Inject;
@@ -17,7 +13,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -67,5 +62,9 @@ public class DungeonInstantiationService {
     private void registerDungeonInstance(DungeonInstance instance) {
         List<DungeonInstance> instances = dungeonInstances.computeIfAbsent(instance.getDungeon().getName(), k -> new ArrayList<>());
         instances.add(instance);
+    }
+
+    public int fetchNumberOfAvailableInstances() {
+        return 0; // TODO: track dungeon instances and return number of available ones based on the max-number-of-instances configuration
     }
 }
