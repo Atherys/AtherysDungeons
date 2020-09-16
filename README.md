@@ -8,10 +8,11 @@ An instancing and dungeon-generating plugin for the A'therys Horizons server, us
     1. Provide the Pterodactyl Application URL in the config ( `pterodactyl.app-url` )
     2. Provide a Pterodactyl API Auth Token in the config ( `pterodactyl.api-token` )
 3. Configure the dungeons
-    1. Create a new minecraft server in pterodactyl
+    1. Create a new Sponge minecraft server
     2. Configure it with all of your necessary plugins, worlds, configurations, etc.
-    3. Note down the first segment of the server's uuid
-    4. Add it to the map of dungeons in the configuration ( `dungeons` )
+    3. Download the `server` folder and put it into a `tar.gz` archive
+    4. Create a new pterodactyl Pack with it
+    4. Add the pack id to the map of dungeons in the configuration ( `dungeons` )
     
 ### Example Config
 
@@ -25,7 +26,7 @@ pterodactyl = {
 
 dungeons = [
     {
-        id = 416f5414,
+        pack-id = 1,
         name = dungeon-1
         min-players = 3
         max-players = 7
@@ -34,7 +35,7 @@ dungeons = [
         }
     },
     {
-        id = 53df3402,
+        pack-id = 2,
         name = dungeon-2
         min-players = 5
         max-players = 10

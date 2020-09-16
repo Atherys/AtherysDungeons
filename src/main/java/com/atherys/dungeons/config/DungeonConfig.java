@@ -6,11 +6,11 @@ import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
 @ConfigSerializable
 public class DungeonConfig {
 
-    @Setting("id")
-    public String ID;
+    @Setting("pack-id")
+    public String PACK_ID;
 
     @Setting("name")
-    public String name;
+    public String NAME;
 
     @Setting("min-players")
     public int MIN_PLAYERS = 1;
