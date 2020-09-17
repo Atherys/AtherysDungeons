@@ -13,9 +13,6 @@ import java.util.List;
 @Singleton
 public class AtherysDungeonsConfig extends PluginConfig {
 
-    @Setting("max-number-of-dungeons")
-    public int MAX_NUMBER_OF_INSTANCES = 3;
-
     @Setting("pterodactyl")
     public PterodactylConfig PTERODACTYL_CONFIG = new PterodactylConfig();
 

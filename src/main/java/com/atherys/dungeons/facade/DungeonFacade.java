@@ -109,7 +109,7 @@ public class DungeonFacade {
         dungeon.setMaxPlayer(dungeonConfig.MAX_PLAYERS);
 
         InstanceSettings settings = new InstanceSettings();
-        settings.setMaxMemory(dungeonConfig.INSTANCE_CONFIG.MAX_MEMORY);
+        settings.setMaxMemory(dungeonConfig.INSTANCE_CONFIG.MEMORY);
 
         dungeon.setInstanceSettings(settings);
 

@@ -22,6 +22,6 @@ public class InstanceConfig {
     public int CPU = 1;
 
     @Setting("port-range")
-    public List<String> PORT_RANGE;
+    public List<Integer> PORT_RANGE;
 
 }

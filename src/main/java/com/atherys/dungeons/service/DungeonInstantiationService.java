@@ -1,12 +1,17 @@
 package com.atherys.dungeons.service;
 
+import com.atherys.dto.RegisterServerDTO;
 import com.atherys.dungeons.AtherysDungeons;
 import com.atherys.dungeons.AtherysDungeonsConfig;
 import com.atherys.dungeons.model.Dungeon;
 import com.atherys.dungeons.model.DungeonInstance;
+import com.atherys.dungeons.service.exception.DungeonInstantiationException;
 import com.mattmalec.pterodactyl4j.DataType;
 import com.mattmalec.pterodactyl4j.PteroBuilder;
 import com.mattmalec.pterodactyl4j.UtilizationState;
+import com.mattmalec.pterodactyl4j.application.entities.Allocation;
+import com.mattmalec.pterodactyl4j.application.entities.Node;
+import com.mattmalec.pterodactyl4j.application.entities.PteroApplication;
 import com.mattmalec.pterodactyl4j.client.entities.ClientServer;
 import com.mattmalec.pterodactyl4j.client.entities.PteroClient;
 import com.mattmalec.pterodactyl4j.client.entities.Utilization;
@@ -17,12 +22,10 @@ import org.spongepowered.api.scheduler.Task;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -38,11 +41,16 @@ public class DungeonInstantiationService {
     @Inject
     private AtherysDungeonsConfig config;
 
+    @Inject
+    private PluginMessageService pluginMessageService;
+
+    private Random rand = new Random();
+
     private Map<String, List<DungeonInstance>> dungeonInstances = new HashMap<>();
 
     private PteroAPI pterodactyl;
 
-    private int numberOfAvailableInstances = 0;
+    private AtomicInteger numberOfAvailableInstances = new AtomicInteger(0);
 
     private Task healthChecker;
 
@@ -55,7 +63,19 @@ public class DungeonInstantiationService {
                 .setToken(config.PTERODACTYL_CONFIG.APPLICATION_API_TOKEN)
                 .build();
 
-        numberOfAvailableInstances = config.MAX_NUMBER_OF_INSTANCES;
+        numberOfAvailableInstances = new AtomicInteger(config.PTERODACTYL_CONFIG.PORTS.size());
+
+        // create a number of allocations based on the size of the listed available ports
+        pterodactyl.asApplication().retrieveNodeById(config.PTERODACTYL_CONFIG.NODE_ID).executeAsync(node -> {
+            config.PTERODACTYL_CONFIG.PORTS.forEach(port -> {
+                node.getAllocationManager().createAllocation()
+                        .setIP(config.PTERODACTYL_CONFIG.ALLOCATIONS_IP_ADDRESS)
+                        .setPorts(port)
+                        .setAlias("localhost")
+                        .build()
+                        .executeAsync(v -> {}, ex -> logger.error("Failed to create allocation for port " + port + ": " + ex.toString()));
+            });
+        });
 
         healthChecker = Sponge.getScheduler().createTaskBuilder()
                 .async()
@@ -78,35 +98,56 @@ public class DungeonInstantiationService {
         thread.start();
     }
 
-    public void createDungeonInstance(Dungeon dungeon, Consumer<DungeonInstance> instanceConsumer) {
-        if (numberOfAvailableInstances <= 0) {
+    public void createDungeonInstance(Dungeon dungeon, Consumer<DungeonInstance> success, Consumer<DungeonInstantiationException> failure) {
+        if (numberOfAvailableInstances.get() <= 0) {
             return;
         }
 
+        PteroApplication pteroApplication = pterodactyl.asApplication();
+
         // decrement early to prevent any kind of async weirdness
-        numberOfAvailableInstances--;
+        numberOfAvailableInstances.decrementAndGet();
 
         String serverName = dungeon.getName() + " " + calcDungeonInstanceSequenceNumber(dungeon);
 
-        pterodactyl.asApplication()
-                .createServer()
-                .setStartupCommand("java -jar") // TODO: Required
-                .setOwner(null) // TODO: Required
-                .setName(serverName) // required
-                .setMemory(dungeon.getInstanceSettings().getMaxMemory(), DataType.MB)
-                // TODO: Add other instance settings
-                .setPack(dungeon.getPackId())
-                .startOnCompletion(true)
-                .build()
-                .executeAsync(applicationServer -> {
-                    DungeonInstance instance = new DungeonInstance();
-                    instance.setDungeon(dungeon);
-                    instance.setApplicationServer(applicationServer);
-                    registerDungeonInstance(instance);
-                    instanceConsumer.accept(instance);
-                }, (failure) -> {
-                    numberOfAvailableInstances++;
-                    logger.error("Failed to create server instance: " + failure.toString());
+        pteroApplication.retrieveNodeById(config.PTERODACTYL_CONFIG.NODE_ID)
+                .executeAsync(node -> {
+                    Optional<Allocation> freeAllocation = pteroApplication.retrieveAllocationsByNode(node)
+                            .execute()
+                            .stream()
+                            .filter(allocation -> config.PTERODACTYL_CONFIG.PORTS.contains(allocation.getPort()) && !allocation.isAssigned())
+                            .findAny();
+
+                    if (!freeAllocation.isPresent()) {
+                        failure.accept(new DungeonInstantiationException("No available allocations, can't instantiate new instance"));
+                        numberOfAvailableInstances.incrementAndGet();
+                        return;
+                    }
+
+                    pteroApplication.createServer()
+                            .setStartupCommand("java -jar") // TODO: Required
+                            .setOwner(null) // TODO: Required
+                            .setName(serverName) // required
+                            .setMemory(dungeon.getInstanceSettings().getMaxMemory(), DataType.MB)
+                            // TODO: Add other instance settings
+                            .setPack(dungeon.getPackId()) // required
+                            .setAllocations(freeAllocation.get().getIdLong()) // required
+                            .startOnCompletion(true) // required
+                            .build()
+                            .executeAsync(applicationServer -> {
+                                DungeonInstance instance = new DungeonInstance();
+                                instance.setName(serverName.replace(' ', '-'));
+                                instance.setDungeon(dungeon);
+                                instance.setApplicationServer(applicationServer);
+                                instance.setAllocation(freeAllocation.get());
+
+                                registerDungeonInstance(instance);
+
+                                success.accept(instance);
+                            }, (fail) -> {
+                                numberOfAvailableInstances.incrementAndGet();
+                                logger.error("Failed to create server instance: " + fail.toString());
+                            });
                 });
     }
 
@@ -115,12 +156,21 @@ public class DungeonInstantiationService {
     }
 
     private void registerDungeonInstance(DungeonInstance instance) {
+        RegisterServerDTO dto = new RegisterServerDTO();
+        dto.setPort((int) instance.getAllocation().getPortLong());
+        dto.setIpAddress(instance.getAllocation().getIP());
+        dto.setKey(instance.getName());
+        dto.setMotd("Dungeon Instance");
+        dto.setName(instance.getName());
+
+        pluginMessageService.proxyRequestServerRegistration(dto);
+
         List<DungeonInstance> instances = dungeonInstances.computeIfAbsent(instance.getDungeon().getName(), k -> new ArrayList<>());
         instances.add(instance);
     }
 
     public int fetchNumberOfAvailableInstances() {
-        return numberOfAvailableInstances;
+        return numberOfAvailableInstances.get();
     }
 
     /**
@@ -176,6 +226,7 @@ public class DungeonInstantiationService {
                 .execute();
 
         // Re-increment available number of instances
-        numberOfAvailableInstances++;
+        numberOfAvailableInstances.incrementAndGet();
     }
+
 }

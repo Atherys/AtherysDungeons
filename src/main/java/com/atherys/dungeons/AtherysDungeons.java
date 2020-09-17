@@ -3,6 +3,7 @@ package com.atherys.dungeons;
 import com.atherys.dungeons.facade.DungeonFacade;
 import com.atherys.dungeons.facade.DungeonsMessagingFacade;
 import com.atherys.dungeons.service.DungeonInstantiationService;
+import com.atherys.dungeons.service.PluginMessageService;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import org.slf4j.Logger;
@@ -50,6 +51,7 @@ public class AtherysDungeons {
         dungeonsInjector.injectMembers(components);
 
         components.config.init();
+        components.pluginMessageService.init();
         components.dungeonInstantiationService.init();
         components.dungeonFacade.init();
     }
@@ -115,5 +117,8 @@ public class AtherysDungeons {
 
         @Inject
         DungeonInstantiationService dungeonInstantiationService;
+
+        @Inject
+        PluginMessageService pluginMessageService;
     }
 }

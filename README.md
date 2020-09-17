@@ -17,11 +17,11 @@ An instancing and dungeon-generating plugin for the A'therys Horizons server, us
 ### Example Config
 
 ```hocon
-max-number-of-instances = 3
-
 pterodactyl = {
     app-url = http://localhost:8080
     api-token = ptero-api-token
+    allocations-ip-address = "172.18.0.1"
+    ports = ["25501", "25502", "25503"] # the number of ports listed here is also the maximum possible number of dungeon instances
 }
 
 dungeons = [
