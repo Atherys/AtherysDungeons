@@ -18,7 +18,7 @@ public class PluginMessageService {
     private ChannelBinding.RawDataChannel proxyChannel;
 
     public void init() {
-        proxyChannel = Sponge.getChannelRegistrar().getOrCreateRaw(AtherysDungeons.getInstance(), "atherysproxyplugin:main");
+        proxyChannel = Sponge.getChannelRegistrar().getOrCreateRaw(AtherysDungeons.getInstance(), "atherysproxy:main");
         gson = AtherysGsonBuilder.getGson();
     }
 
