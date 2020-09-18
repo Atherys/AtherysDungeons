@@ -1,5 +1,8 @@
 package com.atherys.dungeons;
 
+import com.atherys.core.AtherysCore;
+import com.atherys.core.command.CommandService;
+import com.atherys.dungeons.command.DungeonCommand;
 import com.atherys.dungeons.facade.DungeonFacade;
 import com.atherys.dungeons.facade.DungeonsMessagingFacade;
 import com.atherys.dungeons.service.DungeonInstantiationService;
@@ -54,6 +57,12 @@ public class AtherysDungeons {
         components.pluginMessageService.init();
         components.dungeonInstantiationService.init();
         components.dungeonFacade.init();
+
+        try {
+            AtherysCore.getCommandService().register(new DungeonCommand(), this);
+        } catch (CommandService.AnnotatedCommandException e) {
+            e.printStackTrace();
+        }
     }
 
     private void start() {
