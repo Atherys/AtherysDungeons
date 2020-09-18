@@ -21,6 +21,9 @@ public class PterodactylConfig {
     @Setting("allocations-ip-address")
     public String ALLOCATIONS_IP_ADDRESS = "172.18.0.1";
 
+    @Setting("user-id")
+    public long USER_ID = -1;
+
     @Setting("ports")
     public List<String> PORTS = new ArrayList<>();
 

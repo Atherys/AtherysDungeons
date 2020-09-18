@@ -10,10 +10,10 @@ public class InstanceConfig {
 
     // Max RAM to be allocated in MB
     @Setting("memory")
-    public int MEMORY = 1024;
+    public int MEMORY = 4096;
 
     @Setting("swap")
-    public int SWAP = 2048;
+    public int SWAP = 4096;
 
     @Setting("disk")
     public int DISK = 2048;
@@ -21,7 +21,7 @@ public class InstanceConfig {
     @Setting("cpu")
     public int CPU = 1;
 
-    @Setting("port-range")
-    public List<Integer> PORT_RANGE;
+    @Setting("startup-command")
+    public String STARTUP_COMMAND = "java -Xms3072M -Xmx3072M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:-OmitStackTraceInFastThrow -XX:+AlwaysPreTouch  -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=8 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=true -Daikars.new.flags=true -jar server.jar";
 
 }

@@ -1,5 +1,6 @@
 package com.atherys.dungeons.facade;
 
+import com.atherys.dto.RedirectPlayersDTO;
 import com.atherys.dungeons.AtherysDungeons;
 import com.atherys.dungeons.AtherysDungeonsConfig;
 import com.atherys.dungeons.config.DungeonConfig;
@@ -8,6 +9,7 @@ import com.atherys.dungeons.model.Dungeon;
 import com.atherys.dungeons.model.InstanceSettings;
 import com.atherys.dungeons.model.QueuedParty;
 import com.atherys.dungeons.service.DungeonInstantiationService;
+import com.atherys.dungeons.service.PluginMessageService;
 import com.atherys.party.AtherysParties;
 import com.atherys.party.entity.Party;
 import com.google.inject.Inject;
@@ -17,10 +19,7 @@ import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.scheduler.Scheduler;
 import org.spongepowered.api.scheduler.Task;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Singleton
@@ -31,6 +30,9 @@ public class DungeonFacade {
 
     @Inject
     private DungeonInstantiationService dungeonInstantiationService;
+
+    @Inject
+    private PluginMessageService pluginMessageService;
 
     private Map<String, Dungeon> dungeons = new HashMap<>();
 
@@ -81,7 +83,7 @@ public class DungeonFacade {
     private void updateQueue() {
         int numberOfAvailableInstances = dungeonInstantiationService.fetchNumberOfAvailableInstances();
 
-        if ( numberOfAvailableInstances < 1 ) {
+        if (numberOfAvailableInstances < 1) {
             return; // there are no instances available, it is pointless to continue
         }
 
@@ -94,11 +96,21 @@ public class DungeonFacade {
         AtherysParties.getInstance().getPartyMessagingFacade().sendInfoToParty(queuedParty.getParty(), "Prepare to enter ", queuedParty.getDungeon().getName(), "!");
 
         // TODO: Provide some sort of time interval, with a warning, before players are reconnected.
-        // TODO: Decrement number of available instances by 1, ensuring that if the party falls apart before the dungeon instance is ready, it can be re-incremented
 
-        dungeonInstantiationService.createDungeonInstance(queuedParty.getDungeon(), (instance) -> {
-            // TODO: Retrieve server address and port, reconnect players in party
-        });
+        dungeonInstantiationService.createDungeonInstance(
+                queuedParty.getDungeon(),
+                (instance) -> {
+                    RedirectPlayersDTO dto = new RedirectPlayersDTO();
+
+                    dto.setDestination(instance.getName());
+                    dto.setPlayers(new ArrayList<>(queuedParty.getParty().getMembers()));
+
+                    pluginMessageService.proxyRequestRedirectPlayers(dto);
+                },
+                (failure) -> {
+                    AtherysParties.getInstance().getPartyMessagingFacade().sendErrorToParty(queuedParty.getParty(), "There was an error while instantiating your dungeon instance. Please contact a member of staff.");
+                }
+        );
     }
 
     private void registerDungeon(DungeonConfig dungeonConfig) {
@@ -109,7 +121,11 @@ public class DungeonFacade {
         dungeon.setMaxPlayer(dungeonConfig.MAX_PLAYERS);
 
         InstanceSettings settings = new InstanceSettings();
-        settings.setMaxMemory(dungeonConfig.INSTANCE_CONFIG.MEMORY);
+        settings.setMemory(dungeonConfig.INSTANCE_CONFIG.MEMORY);
+        settings.setCpu(dungeonConfig.INSTANCE_CONFIG.CPU);
+        settings.setDisk(dungeonConfig.INSTANCE_CONFIG.DISK);
+        settings.setSwap(dungeonConfig.INSTANCE_CONFIG.SWAP);
+        settings.setStartupCommand(dungeonConfig.INSTANCE_CONFIG.STARTUP_COMMAND);
 
         dungeon.setInstanceSettings(settings);
 

@@ -2,16 +2,56 @@ package com.atherys.dungeons.model;
 
 public class InstanceSettings {
 
-    private int maxMemory;
+    private long memory;
+
+    private long cpu;
+
+    private long disk;
+
+    private long swap;
+
+    private String startupCommand;
 
     public InstanceSettings() {
     }
 
-    public int getMaxMemory() {
-        return maxMemory;
+    public long getMemory() {
+        return memory;
     }
 
-    public void setMaxMemory(int maxMemory) {
-        this.maxMemory = maxMemory;
+    public void setMemory(long memory) {
+        this.memory = memory;
+    }
+
+    public long getCpu() {
+        return cpu;
+    }
+
+    public void setCpu(long cpu) {
+        this.cpu = cpu;
+    }
+
+    public long getDisk() {
+        return disk;
+    }
+
+    public void setDisk(long disk) {
+        this.disk = disk;
+    }
+
+    public long getSwap() {
+        return swap;
+    }
+
+    public void setSwap(long swap) {
+        this.swap = swap;
+    }
+
+    public String getStartupCommand() {
+        return startupCommand;
+    }
+
+    public void setStartupCommand(String startupCommand) {
+        this.startupCommand = startupCommand;
     }
 }

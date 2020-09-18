@@ -24,7 +24,7 @@ import org.spongepowered.api.plugin.Plugin;
         version = "%PLUGIN_VERSION%",
         dependencies = {
                 @Dependency(id = "atheryscore"),
-                @Dependency(id = "atherysskills")
+                @Dependency(id = "atherysparties")
         }
 )
 public class AtherysDungeons {

@@ -49,6 +49,9 @@ public class PluginMessageService {
 
         System.arraycopy(jsonBytes, 0, dataPackage, 2, jsonBytes.length);
 
+        // this is the identifier for what kind of package this is.
+        // it is 2 bytes and each type ( class ) of message must have its own unique key
+        // this will be used at the receiving end to deserialize back into a DTO object
         byte[] keyBytes = key.getBytes();
         dataPackage[0] = keyBytes[0];
         dataPackage[1] = keyBytes[1];
