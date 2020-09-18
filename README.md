@@ -21,6 +21,7 @@ pterodactyl = {
     app-url = http://localhost:8080
     api-token = ptero-api-token
     allocations-ip-address = "172.18.0.1"
+    user-id = 123
     ports = ["25501", "25502", "25503"] # the number of ports listed here is also the maximum possible number of dungeon instances
 }
 
@@ -31,7 +32,11 @@ dungeons = [
         min-players = 3
         max-players = 7
         instance-settings = {
-            max-memory = 2048
+            memory = 4096
+            cpu = 100
+            swap = 4096
+            disk = 10000
+            startup-command = "java -jar -Xms3072M -Xmx3072M server.jar"
         }
     },
     {
@@ -40,7 +45,11 @@ dungeons = [
         min-players = 5
         max-players = 10
         instance-settings = {
-            max-memory = 2048
+            memory = 4096
+            cpu = 100
+            swap = 4096
+            disk = 10000
+            startup-command = "java -jar -Xms3072M -Xmx3072M server.jar"
         }
     }
 ]
@@ -51,5 +60,5 @@ dungeons = [
 * `/dungeon queue dungeon-1` - Queues your and your party for the specified dungeon, if there are enough of you ( see `min-players` config for each dungeon ). You may be queued for only 1 dungeon at a time.
 * `/dungeon deque` - Remove your party from the queue
 
-Depending on the configured `max-number-of-instances`, your party may not immediately enter into the dungeon it has queued for.
-If all the allowed instances are currently in use by other parties, your party will have to wait until one of those instances has been cleared.
+Depending on the configured number of `ports`, your party may not immediately enter into the dungeon it has queued for.
+If all the allowed ports are currently in use by instances by other parties, your party will have to wait until one of those instances has been cleared.
