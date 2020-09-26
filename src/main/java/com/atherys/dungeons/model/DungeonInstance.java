@@ -3,6 +3,8 @@ package com.atherys.dungeons.model;
 import com.mattmalec.pterodactyl4j.application.entities.Allocation;
 import com.mattmalec.pterodactyl4j.application.entities.ApplicationServer;
 
+import java.util.function.Consumer;
+
 public class DungeonInstance {
 
     private String name;
@@ -12,6 +14,10 @@ public class DungeonInstance {
     private ApplicationServer applicationServer;
 
     private Allocation allocation;
+
+    private boolean isRegistered;
+
+    private Consumer<DungeonInstance> onRegistration;
 
     public DungeonInstance() {
     }
@@ -47,5 +53,21 @@ public class DungeonInstance {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public boolean isRegistered() {
+        return isRegistered;
+    }
+
+    public void setRegistered(boolean registered) {
+        isRegistered = registered;
+    }
+
+    public Consumer<DungeonInstance> getOnRegistration() {
+        return onRegistration;
+    }
+
+    public void setOnRegistration(Consumer<DungeonInstance> onRegistration) {
+        this.onRegistration = onRegistration;
     }
 }

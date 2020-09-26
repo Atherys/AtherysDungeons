@@ -93,13 +93,15 @@ public class DungeonFacade {
             return; // the queue was empty and no party could be retrieved
         }
 
-        AtherysParties.getInstance().getPartyMessagingFacade().sendInfoToParty(queuedParty.getParty(), "Prepare to enter ", queuedParty.getDungeon().getName(), "!");
+        AtherysParties.getInstance().getPartyMessagingFacade().sendInfoToParty(queuedParty.getParty(), "You party is now at the top of the queue! Prepare to enter ", queuedParty.getDungeon().getName(), "! This may take some time, as the dungeon instance starts up...");
 
         // TODO: Provide some sort of time interval, with a warning, before players are reconnected.
 
         dungeonInstantiationService.createDungeonInstance(
                 queuedParty.getDungeon(),
                 (instance) -> {
+                    AtherysParties.getInstance().getPartyMessagingFacade().sendInfoToParty(queuedParty.getParty(), "You are now entering " + queuedParty.getDungeon().getName());
+
                     RedirectPlayersDTO dto = new RedirectPlayersDTO();
 
                     dto.setDestination(instance.getName());
@@ -116,6 +118,8 @@ public class DungeonFacade {
     private void registerDungeon(DungeonConfig dungeonConfig) {
         Dungeon dungeon = new Dungeon();
         dungeon.setPackId(dungeonConfig.PACK_ID);
+        dungeon.setNestId(dungeonConfig.NEST_ID);
+        dungeon.setEggId(dungeonConfig.EGG_ID);
         dungeon.setName(dungeonConfig.NAME);
         dungeon.setMinPlayers(dungeonConfig.MIN_PLAYERS);
         dungeon.setMaxPlayer(dungeonConfig.MAX_PLAYERS);
@@ -126,6 +130,7 @@ public class DungeonFacade {
         settings.setDisk(dungeonConfig.INSTANCE_CONFIG.DISK);
         settings.setSwap(dungeonConfig.INSTANCE_CONFIG.SWAP);
         settings.setStartupCommand(dungeonConfig.INSTANCE_CONFIG.STARTUP_COMMAND);
+        settings.setEnvironment(dungeonConfig.INSTANCE_CONFIG.ENVIRONMENT);
 
         dungeon.setInstanceSettings(settings);
 

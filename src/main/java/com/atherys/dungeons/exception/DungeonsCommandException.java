@@ -7,6 +7,6 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class DungeonsCommandException extends CommandException {
     public DungeonsCommandException(Object... message) {
-        super(AtherysDungeons.getInstance().getDungeonsMessagingFacade().formatError(TextColors.RED, message));
+        super(AtherysDungeons.getInstance().getDungeonsMessagingFacade().formatError(TextColors.RED, Text.of(message)));
     }
 }

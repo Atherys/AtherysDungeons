@@ -22,6 +22,7 @@ pterodactyl = {
     api-token = ptero-api-token
     allocations-ip-address = "172.18.0.1"
     user-id = 123
+    location-ids = [1, 2, 3]
     ports = ["25501", "25502", "25503"] # the number of ports listed here is also the maximum possible number of dungeon instances
 }
 
@@ -31,12 +32,18 @@ dungeons = [
         name = dungeon-1
         min-players = 3
         max-players = 7
+        nest-id = 1
+        egg-id = 12
         instance-settings = {
             memory = 4096
             cpu = 100
             swap = 4096
             disk = 10000
             startup-command = "java -jar -Xms3072M -Xmx3072M server.jar"
+            environment = {
+                "SF_VERSION" = "1.12.2-2838-7.3.0"
+                "SERVER_JARFILE" = "server.jar"
+            }
         }
     },
     {
@@ -44,12 +51,18 @@ dungeons = [
         name = dungeon-2
         min-players = 5
         max-players = 10
+        nest-id = 1
+        egg-id = 12
         instance-settings = {
             memory = 4096
             cpu = 100
             swap = 4096
             disk = 10000
             startup-command = "java -jar -Xms3072M -Xmx3072M server.jar"
+            environment = {
+                "SF_VERSION" = "1.12.2-2838-7.3.0"
+                "SERVER_JARFILE" = "server.jar"
+            }
         }
     }
 ]

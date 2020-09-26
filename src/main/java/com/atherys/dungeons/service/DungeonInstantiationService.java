@@ -10,10 +10,7 @@ import com.atherys.dungeons.service.exception.DungeonInstantiationException;
 import com.mattmalec.pterodactyl4j.DataType;
 import com.mattmalec.pterodactyl4j.PteroBuilder;
 import com.mattmalec.pterodactyl4j.UtilizationState;
-import com.mattmalec.pterodactyl4j.application.entities.Allocation;
-import com.mattmalec.pterodactyl4j.application.entities.Node;
-import com.mattmalec.pterodactyl4j.application.entities.PteroApplication;
-import com.mattmalec.pterodactyl4j.application.entities.User;
+import com.mattmalec.pterodactyl4j.application.entities.*;
 import com.mattmalec.pterodactyl4j.client.entities.ClientServer;
 import com.mattmalec.pterodactyl4j.client.entities.PteroClient;
 import com.mattmalec.pterodactyl4j.client.entities.Utilization;
@@ -25,7 +22,6 @@ import org.spongepowered.api.scheduler.Task;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -50,37 +46,47 @@ public class DungeonInstantiationService {
 
     private Map<String, List<DungeonInstance>> dungeonInstances = new HashMap<>();
 
-    private PteroAPI pterodactyl;
+    private PteroApplication pteroApplication;
+
+    private PteroClient pteroClient;
 
     private AtomicInteger numberOfAvailableInstances = new AtomicInteger(0);
 
-    private Task healthChecker;
+    private Task worker;
 
     public DungeonInstantiationService() {
     }
 
     public void init() {
-        pterodactyl = new PteroBuilder()
+
+        pteroApplication = new PteroBuilder()
                 .setApplicationUrl(config.PTERODACTYL_CONFIG.APPLICATION_URL)
-                .setToken(config.PTERODACTYL_CONFIG.APPLICATION_API_TOKEN)
-                .build();
+                .setToken(config.PTERODACTYL_CONFIG.APPLICATION_TOKEN)
+                .build()
+                .asApplication();
+
+        pteroClient = new PteroBuilder()
+                .setApplicationUrl(config.PTERODACTYL_CONFIG.APPLICATION_URL)
+                .setToken(config.PTERODACTYL_CONFIG.CLIENT_TOKEN)
+                .build()
+                .asClient();
 
         numberOfAvailableInstances = new AtomicInteger(config.PTERODACTYL_CONFIG.PORTS.size());
 
         // create a number of allocations based on the size of the listed available ports
-        pterodactyl.asApplication().retrieveNodeById(config.PTERODACTYL_CONFIG.NODE_ID).executeAsync(
+        pteroApplication.retrieveNodeById(config.PTERODACTYL_CONFIG.NODE_ID).executeAsync(
                 node -> config.PTERODACTYL_CONFIG.PORTS.forEach(port -> node.getAllocationManager().createAllocation()
                         .setIP(config.PTERODACTYL_CONFIG.ALLOCATIONS_IP_ADDRESS)
                         .setPorts(port)
                         .setAlias("localhost")
                         .build()
-                        .executeAsync(v -> {}, ex -> logger.error("Failed to create allocation for port " + port + ": " + ex.toString()))),
-                fail -> logger.error("Could not retrieve Node with id " + config.PTERODACTYL_CONFIG.NODE_ID + ": " + fail.toString()));
+                        .executeAsync(v -> {}, ex -> logger.error("Failed to create allocation for port " + port, ex.toString()))),
+                fail -> logger.error("Could not retrieve Node with id " + config.PTERODACTYL_CONFIG.NODE_ID, fail));
 
-        healthChecker = Sponge.getScheduler().createTaskBuilder()
+        worker = Sponge.getScheduler().createTaskBuilder()
                 .async()
                 .interval(1, TimeUnit.SECONDS)
-                .execute(this::healthCheckInstances)
+                .execute(this::work)
                 .submit(AtherysDungeons.getInstance());
     }
 
@@ -103,8 +109,6 @@ public class DungeonInstantiationService {
             return;
         }
 
-        PteroApplication pteroApplication = pterodactyl.asApplication();
-
         // decrement early to prevent any kind of async weirdness
         numberOfAvailableInstances.decrementAndGet();
 
@@ -119,15 +123,29 @@ public class DungeonInstantiationService {
                             .findAny();
 
                     if (!freeAllocation.isPresent()) {
-                        failure.accept(new DungeonInstantiationException("No available allocations, can't instantiate new instance"));
-                        numberOfAvailableInstances.incrementAndGet();
+                        failToCreateServerInstance(failure, "No available allocations", null);
                         return;
                     }
 
                     User user = pteroApplication.retrieveUserById(config.PTERODACTYL_CONFIG.USER_ID).execute();
 
                     if (user == null) {
-                        throw new DungeonInstantiationException("Invalid User ID in configuration, can't instantiate new instance");
+                        failToCreateServerInstance(failure, "Invalid User ID in configuration", null);
+                        return;
+                    }
+
+                    Nest nest = pteroApplication.retrieveNestById(dungeon.getNestId()).execute();
+                    Egg egg = pteroApplication.retrieveEggById(nest, dungeon.getEggId()).execute();
+
+                    Set<Location> locations = pteroApplication.retrieveLocations()
+                            .execute()
+                            .stream()
+                            .filter(location -> config.PTERODACTYL_CONFIG.LOCATION_IDS.contains(location.getIdLong()))
+                            .collect(Collectors.toSet());
+
+                    if (locations.isEmpty()) {
+                        failToCreateServerInstance(failure, "None of the configured server locations could be found", null);
+                        return;
                     }
 
                     pteroApplication.createServer()
@@ -137,26 +155,42 @@ public class DungeonInstantiationService {
                             .setPack(dungeon.getPackId()) // required
                             .setAllocations(freeAllocation.get().getIdLong()) // required
                             .startOnCompletion(true) // required
+                            .setLocations(locations)
+                            .setEgg(egg)
                             .setMemory(dungeon.getInstanceSettings().getMemory(), DataType.MB)
                             .setCPU(dungeon.getInstanceSettings().getCpu())
                             .setDisk(dungeon.getInstanceSettings().getDisk(), DataType.MB)
                             .setSwap(dungeon.getInstanceSettings().getSwap(), DataType.MB)
+                            .setEnvironment(dungeon.getInstanceSettings().getEnvironment())
                             .build()
                             .executeAsync(applicationServer -> {
                                 DungeonInstance instance = new DungeonInstance();
-                                instance.setName(serverName.replace(' ', '-'));
+                                instance.setName(serverName);
                                 instance.setDungeon(dungeon);
                                 instance.setApplicationServer(applicationServer);
                                 instance.setAllocation(freeAllocation.get());
+                                instance.setRegistered(false);
+                                instance.setOnRegistration(success);
+                                //registerDungeonInstance(instance);
 
-                                registerDungeonInstance(instance);
-
-                                success.accept(instance);
+                                List<DungeonInstance> instances = dungeonInstances.computeIfAbsent(instance.getDungeon().getName(), k -> new ArrayList<>());
+                                instances.add(instance);
                             }, (fail) -> {
-                                numberOfAvailableInstances.incrementAndGet();
-                                logger.error("Failed to create server instance: " + fail.toString());
+                                failToCreateServerInstance(failure, "", fail);
                             });
                 });
+    }
+
+    private void failToCreateServerInstance(Consumer<DungeonInstantiationException> failure, String message, Throwable exception) {
+        failure.accept(new DungeonInstantiationException(message));
+
+        if (exception == null) {
+            logger.error("Failed to create server instance: " + message);
+        } else {
+            logger.error("Failed to create server instance: " + message, exception);
+        }
+
+        numberOfAvailableInstances.incrementAndGet();
     }
 
     public int fetchNumberOfAvailableInstances() {
@@ -175,28 +209,36 @@ public class DungeonInstantiationService {
         dto.setMotd("Dungeon Instance");
         dto.setName(instance.getName());
 
+        // register server with proxy
         pluginMessageService.proxyRequestServerRegistration(dto);
 
-        List<DungeonInstance> instances = dungeonInstances.computeIfAbsent(instance.getDungeon().getName(), k -> new ArrayList<>());
-        instances.add(instance);
+        // call success callback
+        instance.getOnRegistration().accept(instance);
     }
 
     /**
      * Iterate through all currently running instances.
      * If any are stopped, delete them and re-increment numberOfAvailableInstances
      */
-    private void healthCheckInstances() {
+    private void work() {
         dungeonInstances.values().stream()
                 .flatMap(List::stream)
                 .collect(Collectors.toList())
                 .forEach(instance -> {
-                    PteroClient client = pterodactyl.asClient();
-
                     // fetch server by identifier
-                    client.retrieveServerByIdentifier(instance.getApplicationServer().getIdentifier())
+                    pteroClient.retrieveServerByIdentifier(instance.getApplicationServer().getIdentifier())
                             .executeAsync(server -> {
+
                                 // fetch server utilization
-                                Utilization utilization = client.retrieveUtilization(server).execute();
+                                Utilization utilization = pteroClient.retrieveUtilization(server).execute();
+
+                                logger.info(utilization.getState().toString());
+
+                                // If the server has not been registered yet, and it is in the ON state, register it
+                                if (!instance.isRegistered() && UtilizationState.ON.equals(utilization.getState())) {
+                                    registerDungeonInstance(instance);
+                                    instance.setRegistered(true);
+                                }
 
                                 // if off, delete server with force
                                 if (UtilizationState.OFF.equals(utilization.getState())) {
@@ -207,17 +249,15 @@ public class DungeonInstantiationService {
     }
 
     private void shutdownAndDeleteInstance(DungeonInstance instance) {
-        PteroClient client = pterodactyl.asClient();
-
         UtilizationState utilizationState = UtilizationState.ON;
 
         while (!UtilizationState.OFF.equals(utilizationState)) {
-            ClientServer server = client.retrieveServerByIdentifier(instance.getApplicationServer().getIdentifier()).execute();
-            Utilization utilization = client.retrieveUtilization(server).execute();
+            ClientServer server = pteroClient.retrieveServerByIdentifier(instance.getApplicationServer().getIdentifier()).execute();
+            Utilization utilization = pteroClient.retrieveUtilization(server).execute();
 
             if (!UtilizationState.STOPPING.equals(utilization.getState()) || !UtilizationState.OFF.equals(utilization.getState())) {
                 // while the utilization state continues to not be "OFF" or "STOPPING", keep sending "stop" commands
-                client.sendCommand(server, "stop");
+                pteroClient.sendCommand(server, "stop");
             }
 
             utilizationState = utilization.getState();

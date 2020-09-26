@@ -1,5 +1,7 @@
 package com.atherys.dungeons.model;
 
+import java.util.Map;
+
 public class InstanceSettings {
 
     private long memory;
@@ -11,6 +13,8 @@ public class InstanceSettings {
     private long swap;
 
     private String startupCommand;
+
+    private Map<String, String> environment;
 
     public InstanceSettings() {
     }
@@ -53,5 +57,13 @@ public class InstanceSettings {
 
     public void setStartupCommand(String startupCommand) {
         this.startupCommand = startupCommand;
+    }
+
+    public Map<String, String> getEnvironment() {
+        return environment;
+    }
+
+    public void setEnvironment(Map<String, String> environment) {
+        this.environment = environment;
     }
 }

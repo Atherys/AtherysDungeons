@@ -16,8 +16,8 @@ import org.spongepowered.api.text.Text;
 
 import javax.annotation.Nonnull;
 
-@Aliases("deque")
-@Permission("atherysdungeons.dungeon.deque")
+@Aliases("queue")
+@Permission("atherysdungeons.dungeon.queue")
 public class DungeonQueueCommand implements PlayerCommand, ParameterizedCommand {
     @Nonnull
     @Override

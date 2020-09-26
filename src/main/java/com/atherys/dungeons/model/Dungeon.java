@@ -7,6 +7,10 @@ public class Dungeon {
 
     private long packId;
 
+    private long nestId;
+
+    private long eggId;
+
     private String name;
 
     private int minPlayers = 1;
@@ -56,5 +60,21 @@ public class Dungeon {
 
     public void setInstanceSettings(InstanceSettings instanceSettings) {
         this.instanceSettings = instanceSettings;
+    }
+
+    public long getNestId() {
+        return nestId;
+    }
+
+    public void setNestId(long nestId) {
+        this.nestId = nestId;
+    }
+
+    public long getEggId() {
+        return eggId;
+    }
+
+    public void setEggId(long eggId) {
+        this.eggId = eggId;
     }
 }

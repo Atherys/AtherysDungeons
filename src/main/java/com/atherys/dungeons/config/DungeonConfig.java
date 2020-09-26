@@ -9,6 +9,12 @@ public class DungeonConfig {
     @Setting("pack-id")
     public long PACK_ID;
 
+    @Setting("nest-id")
+    public long NEST_ID = 1;
+
+    @Setting("egg-id")
+    public long EGG_ID = 12;
+
     @Setting("name")
     public String NAME;
 
