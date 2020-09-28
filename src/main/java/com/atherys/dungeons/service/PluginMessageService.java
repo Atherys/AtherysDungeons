@@ -8,6 +8,7 @@ import com.atherys.dungeons.AtherysDungeons;
 import com.google.gson.Gson;
 import com.google.inject.Singleton;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.network.ChannelBinding;
 
 @Singleton
@@ -37,7 +38,14 @@ public class PluginMessageService {
     private void proxyRequest(String key, String json) {
         byte[] dataPackage = transformDataPackage(key, json);
 
-        proxyChannel.sendToServer((buffer) -> {
+        Player player = Sponge.getServer().getOnlinePlayers().stream().findAny().orElse(null);
+
+        // no online player could be found
+        if (player == null) {
+            return;
+        }
+
+        proxyChannel.sendTo(player, (buffer) -> {
             buffer.writeByteArray(dataPackage);
         });
     }

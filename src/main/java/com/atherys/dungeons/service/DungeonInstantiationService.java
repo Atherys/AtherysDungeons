@@ -15,6 +15,7 @@ import com.mattmalec.pterodactyl4j.client.entities.ClientServer;
 import com.mattmalec.pterodactyl4j.client.entities.PteroClient;
 import com.mattmalec.pterodactyl4j.client.entities.Utilization;
 import com.mattmalec.pterodactyl4j.entities.PteroAPI;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.scheduler.Task;
@@ -58,6 +59,9 @@ public class DungeonInstantiationService {
     }
 
     public void init() {
+        if (worker != null) {
+            worker.cancel();
+        }
 
         pteroApplication = new PteroBuilder()
                 .setApplicationUrl(config.PTERODACTYL_CONFIG.APPLICATION_URL)
@@ -85,7 +89,7 @@ public class DungeonInstantiationService {
 
         worker = Sponge.getScheduler().createTaskBuilder()
                 .async()
-                .interval(1, TimeUnit.SECONDS)
+                .interval(5, TimeUnit.SECONDS)
                 .execute(this::work)
                 .submit(AtherysDungeons.getInstance());
     }
@@ -112,7 +116,7 @@ public class DungeonInstantiationService {
         // decrement early to prevent any kind of async weirdness
         numberOfAvailableInstances.decrementAndGet();
 
-        String serverName = dungeon.getName() + " " + calcDungeonInstanceSequenceNumber(dungeon);
+        String serverName = StringUtils.replace(dungeon.getName() + "-" + calcDungeonInstanceSequenceNumber(dungeon), " ", "-");
 
         pteroApplication.retrieveNodeById(config.PTERODACTYL_CONFIG.NODE_ID)
                 .executeAsync(node -> {
@@ -153,7 +157,8 @@ public class DungeonInstantiationService {
                             .setOwner(user) // required
                             .setName(serverName) // required
                             .setPack(dungeon.getPackId()) // required
-                            .setAllocations(freeAllocation.get().getIdLong()) // required
+                            .setAllocations(1L) // required
+                            .setPortRange(Collections.singleton(freeAllocation.get().getPort()))
                             .startOnCompletion(true) // required
                             .setLocations(locations)
                             .setEgg(egg)
@@ -209,11 +214,16 @@ public class DungeonInstantiationService {
         dto.setMotd("Dungeon Instance");
         dto.setName(instance.getName());
 
+        logger.info("Sending proxy registration request...");
         // register server with proxy
         pluginMessageService.proxyRequestServerRegistration(dto);
 
+        logger.info("Calling onRegistration handler");
         // call success callback
         instance.getOnRegistration().accept(instance);
+
+        logger.info("Flagging server as registered");
+        instance.setRegistered(true);
     }
 
     /**
@@ -221,30 +231,38 @@ public class DungeonInstantiationService {
      * If any are stopped, delete them and re-increment numberOfAvailableInstances
      */
     private void work() {
-        dungeonInstances.values().stream()
+        // fetch random dungeon instance and do work on it every tick.
+        // The reason we do not do work for all dungeon instances every tick is so we don't overload the host with requests
+        // and get ourselves limited by the proxy or flagged by ddos protection
+        Optional<DungeonInstance> dungeonInstance = dungeonInstances.values().stream()
                 .flatMap(List::stream)
-                .collect(Collectors.toList())
-                .forEach(instance -> {
-                    // fetch server by identifier
-                    pteroClient.retrieveServerByIdentifier(instance.getApplicationServer().getIdentifier())
-                            .executeAsync(server -> {
+                .findAny();
 
-                                // fetch server utilization
-                                Utilization utilization = pteroClient.retrieveUtilization(server).execute();
+        // there are no available dungeon instances to do work on
+        if (!dungeonInstance.isPresent()) {
+            return;
+        }
 
-                                logger.info(utilization.getState().toString());
+        DungeonInstance instance = dungeonInstance.get();
 
-                                // If the server has not been registered yet, and it is in the ON state, register it
-                                if (!instance.isRegistered() && UtilizationState.ON.equals(utilization.getState())) {
-                                    registerDungeonInstance(instance);
-                                    instance.setRegistered(true);
-                                }
+        // fetch server by identifier
+        pteroClient.retrieveServerByIdentifier(instance.getApplicationServer().getIdentifier())
+                .executeAsync(server -> {
 
-                                // if off, delete server with force
-                                if (UtilizationState.OFF.equals(utilization.getState())) {
-                                    deleteInstance(instance);
-                                }
-                            });
+                    // fetch server utilization
+                    Utilization utilization = pteroClient.retrieveUtilization(server).execute();
+
+                    // If the server has not been registered yet, and it is in the ON state, register it
+                    if (!instance.isRegistered() && UtilizationState.ON.equals(utilization.getState())) {
+                        logger.info("Registering server " + instance.getName());
+                        registerDungeonInstance(instance);
+                    }
+
+                    // if off, delete server with force
+                    if (instance.isRegistered() && UtilizationState.OFF.equals(utilization.getState())) {
+                        logger.info("Deleting server " + instance.getName());
+                        deleteInstance(instance);
+                    }
                 });
     }
 
@@ -277,6 +295,10 @@ public class DungeonInstantiationService {
         unregisterServerDTO.setKey(instance.getName());
 
         pluginMessageService.proxyRequestServerUnregistration(unregisterServerDTO);
+
+        instance.setRegistered(false);
+
+        dungeonInstances.remove(instance.getName());
 
         // Re-increment available number of instances
         numberOfAvailableInstances.incrementAndGet();
