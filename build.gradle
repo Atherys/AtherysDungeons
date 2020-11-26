@@ -1,14 +1,18 @@
 plugins {
     id 'com.github.johnrengelman.shadow' version '2.0.2'
-    id 'com.atherys.gradle' version '1.4.0'
+    id 'com.atherys.gradle' version '1.5.0'
 }
 group 'com.atherys'
 
 version '1.0.0'
 
+repositories {
+    jcenter()
+}
+
 dependencies {
     shadow 'com.github.Atherys-Horizons:AtherysParties:master-SNAPSHOT'
 
     compile 'com.github.Atherys-Horizons:AtherysDTOs:master-SNAPSHOT'
-    compile 'com.github.Atherys-Horizons:Pterodactyl4J:develop-SNAPSHOT'
+    compile 'com.mattmalec.Pterodactyl4J:Pterodactyl4J:2.BETA_9'
 }

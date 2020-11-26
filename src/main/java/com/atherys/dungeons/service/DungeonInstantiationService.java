@@ -14,7 +14,7 @@ import com.mattmalec.pterodactyl4j.application.entities.*;
 import com.mattmalec.pterodactyl4j.client.entities.ClientServer;
 import com.mattmalec.pterodactyl4j.client.entities.PteroClient;
 import com.mattmalec.pterodactyl4j.client.entities.Utilization;
-import com.mattmalec.pterodactyl4j.entities.PteroAPI;
+import com.mattmalec.pterodactyl4j.entities.User;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
@@ -66,14 +66,12 @@ public class DungeonInstantiationService {
         pteroApplication = new PteroBuilder()
                 .setApplicationUrl(config.PTERODACTYL_CONFIG.APPLICATION_URL)
                 .setToken(config.PTERODACTYL_CONFIG.APPLICATION_TOKEN)
-                .build()
-                .asApplication();
+                .buildApplication();
 
         pteroClient = new PteroBuilder()
                 .setApplicationUrl(config.PTERODACTYL_CONFIG.APPLICATION_URL)
                 .setToken(config.PTERODACTYL_CONFIG.CLIENT_TOKEN)
-                .build()
-                .asClient();
+                .buildClient();
 
         numberOfAvailableInstances = new AtomicInteger(config.PTERODACTYL_CONFIG.PORTS.size());
 
@@ -131,7 +129,7 @@ public class DungeonInstantiationService {
                         return;
                     }
 
-                    User user = pteroApplication.retrieveUserById(config.PTERODACTYL_CONFIG.USER_ID).execute();
+                    ApplicationUser user = pteroApplication.retrieveUserById(config.PTERODACTYL_CONFIG.USER_ID).execute();
 
                     if (user == null) {
                         failToCreateServerInstance(failure, "Invalid User ID in configuration", null);
@@ -253,13 +251,13 @@ public class DungeonInstantiationService {
                     Utilization utilization = pteroClient.retrieveUtilization(server).execute();
 
                     // If the server has not been registered yet, and it is in the ON state, register it
-                    if (!instance.isRegistered() && UtilizationState.ON.equals(utilization.getState())) {
+                    if (!instance.isRegistered() && UtilizationState.RUNNING.equals(utilization.getState())) {
                         logger.info("Registering server " + instance.getName());
                         registerDungeonInstance(instance);
                     }
 
                     // if off, delete server with force
-                    if (instance.isRegistered() && UtilizationState.OFF.equals(utilization.getState())) {
+                    if (instance.isRegistered() && UtilizationState.OFFLINE.equals(utilization.getState())) {
                         logger.info("Deleting server " + instance.getName());
                         deleteInstance(instance);
                     }
@@ -267,13 +265,13 @@ public class DungeonInstantiationService {
     }
 
     private void shutdownAndDeleteInstance(DungeonInstance instance) {
-        UtilizationState utilizationState = UtilizationState.ON;
+        UtilizationState utilizationState = UtilizationState.RUNNING;
 
-        while (!UtilizationState.OFF.equals(utilizationState)) {
+        while (!UtilizationState.OFFLINE.equals(utilizationState)) {
             ClientServer server = pteroClient.retrieveServerByIdentifier(instance.getApplicationServer().getIdentifier()).execute();
             Utilization utilization = pteroClient.retrieveUtilization(server).execute();
 
-            if (!UtilizationState.STOPPING.equals(utilization.getState()) || !UtilizationState.OFF.equals(utilization.getState())) {
+            if (!UtilizationState.STOPPING.equals(utilization.getState()) || !UtilizationState.OFFLINE.equals(utilization.getState())) {
                 // while the utilization state continues to not be "OFF" or "STOPPING", keep sending "stop" commands
                 pteroClient.sendCommand(server, "stop");
             }
